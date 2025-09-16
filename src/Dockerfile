@@ -13,6 +13,7 @@ ARG PADD_BRANCH="development"
 ARG CORE_FORK="pi-hole"
 ARG WEB_FORK="pi-hole"
 ARG PADD_FORK="pi-hole"
+ARG WEB_REPO="web"
 
 ARG PIHOLE_UID=1000
 ARG PIHOLE_GID=1000
@@ -76,7 +77,8 @@ RUN clone_repo() { \
         cd "$DEST"; \
         if [ "$BRANCH" = "master" ]; then git checkout -b master; fi; \
     }; \
-    clone_repo "${WEB_FORK}" "web" "${WEB_BRANCH}" "/var/www/html/admin"; \
+    #clone_repo "${WEB_FORK}" "web" "${WEB_BRANCH}" "/var/www/html/admin"; \
+    clone_repo "${WEB_FORK}" "${WEB_REPO}" "${WEB_BRANCH}" "/var/www/html/admin"; \
     clone_repo "${CORE_FORK}" "pi-hole" "${CORE_BRANCH}" "/etc/.pihole"
 
 
