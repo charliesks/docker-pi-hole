@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 ARG FTL_SOURCE=remote
 # Pull Stable images
-FROM alpine:3.22 AS base
+FROM alpine:3.24 AS base
 
 ARG TARGETPLATFORM
 ARG WEB_BRANCH="development"
@@ -64,22 +64,57 @@ ADD --chmod=0755 https://raw.githubusercontent.com/${PADD_FORK}/PADD/${PADD_BRAN
 # if the branch is master we clone the latest tag as sometimes the master branch contains meta changes that have not been tagged
 # (we need to create a new "master" branch to avoid the "detached HEAD" state for the version check to work correctly)                                      
 
-RUN clone_repo() { \
+RUN set -eux; \
+    clone_repo() { \
         FORK="$1"; \
         REPO="$2"; \
         BRANCH="$3"; \
         DEST="$4"; \
         CLONE_BRANCH="$BRANCH"; \
         if [ "$BRANCH" = "master" ]; then \
-            CLONE_BRANCH=$(curl -s https://api.github.com/repos/${FORK}/${REPO}/releases/latest | jq -r .tag_name); \
+            CLONE_BRANCH="$(curl -fsSL \
+                "https://api.github.com/repos/${FORK}/${REPO}/releases/latest" \
+                | jq -er '.tag_name')"; \
         fi; \
-        git clone --branch "$CLONE_BRANCH" --single-branch --depth 1 "https://github.com/${FORK}/${REPO}.git" "$DEST"; \
-        cd "$DEST"; \
-        if [ "$BRANCH" = "master" ]; then git checkout -b master; fi; \
+        git clone \
+            --branch "$CLONE_BRANCH" \
+            --single-branch \
+            --depth 1 \
+            "https://github.com/${FORK}/${REPO}.git" \
+            "$DEST"; \
+        test -d "$DEST/.git"; \
+        if [ "$BRANCH" = "master" ]; then \
+            git -C "$DEST" checkout -b master; \
+        fi; \
     }; \
+    clone_repo \
+        "${WEB_FORK}" \
+        "${WEB_REPO}" \
+        "${WEB_BRANCH}" \
+        "/var/www/html/admin"; \
+    test -f /var/www/html/admin/login.lp; \
+    test -f /var/www/html/admin/index.lp; \
+    clone_repo \
+        "${CORE_FORK}" \
+        "pi-hole" \
+        "${CORE_BRANCH}" \
+        "/etc/.pihole"
+#RUN clone_repo() { \
+        #FORK="$1"; \
+        #REPO="$2"; \
+        #BRANCH="$3"; \
+        #DEST="$4"; \
+        #CLONE_BRANCH="$BRANCH"; \
+        #if [ "$BRANCH" = "master" ]; then \
+            #CLONE_BRANCH=$(curl -s https://api.github.com/repos/${FORK}/${REPO}/releases/latest | jq -r .tag_name); \
+        #fi; \
+        #git clone --branch "$CLONE_BRANCH" --single-branch --depth 1 "https://github.com/${FORK}/${REPO}.git" "$DEST"; \
+        #cd "$DEST"; \
+        #if [ "$BRANCH" = "master" ]; then git checkout -b master; fi; \
+    #}; \
     #clone_repo "${WEB_FORK}" "web" "${WEB_BRANCH}" "/var/www/html/admin"; \
-    clone_repo "${WEB_FORK}" "${WEB_REPO}" "${WEB_BRANCH}" "/var/www/html/admin"; \
-    clone_repo "${CORE_FORK}" "pi-hole" "${CORE_BRANCH}" "/etc/.pihole"
+    #clone_repo "${WEB_FORK}" "${WEB_REPO}" "${WEB_BRANCH}" "/var/www/html/admin"; \
+    #clone_repo "${CORE_FORK}" "pi-hole" "${CORE_BRANCH}" "/etc/.pihole"
 
 
 RUN cd /etc/.pihole && \
